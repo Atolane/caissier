@@ -1,226 +1,245 @@
 /* ============================================================
-   INTERFACE — rendu, animations, écrans
+   INTERFACE — ATH discret par-dessus la scène 3D.
+   Ce module expose exactement la même façade qu'avant (UI.*) :
+   le moteur de jeu n'a pas changé, seule la présentation l'a.
    ============================================================ */
 const UI = (function () {
-  const $ = (s) => document.querySelector(s);
   const el = {};
   let boutons = { scanner: false, encaisser: false };
-  let articlesEnCours = [];
+  let clientCourant = null;
+  let derniereReplique = null;
   let totalCourant = 0, nbScannes = 0;
-  let humeurCaiss = 'blase';
-  let faceCaissiere = { peau: '#f3cba7', cheveux: 'chignon', couleur: '#8a5a2b', lunettes: false, vetement: '#2f80ed' };
-  let faceResp = { peau: '#e0b184', cheveux: 'court', couleur: '#3a3a3a', lunettes: true, vetement: '#2b3a55', barbe: true };
+  let survol = null;
+
+  const JOURS_SEMAINE = ['MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI'];
 
   function init() {
-    ['hud', 'scene', 'panneau', 'overlay', 'overlay-box', 'choix', 'actions', 'articles', 'tapis',
-      'client-avatar', 'client-nom', 'caissiere-avatar', 'zone-client', 'zone-caissiere', 'file-attente',
-      'bulle-client', 'bulle-client-txt', 'bulle-caissiere', 'bulle-caissiere-txt', 'scanner', 'tpe',
-      'tiroir', 'responsable', 'resp-avatar', 'resp-bulle', 'volants', 'toasts', 'ticket-info',
-      'ticket-total', 'ticket-details', 'enseigne', 'num-caisse', 'hud-jour', 'hud-heure', 'hud-argent',
-      'hud-file'].forEach(id => { el[id] = document.getElementById(id); });
-    el['caissiere-avatar'].innerHTML = Visages.dessine(faceCaissiere, 'blase');
-    el['resp-avatar'].innerHTML = Visages.dessine(faceResp, 'neutre');
+    ['vue', 'hud', 'hud-jour', 'hud-heure', 'hud-magasin', 'hud-jauges', 'viseur', 'viseur-txt',
+      'bulle-client', 'bulle-client-nom', 'bulle-client-txt', 'bulle-caissiere', 'annonce',
+      'toasts', 'volants', 'zone-bas', 'titre-choix', 'choix', 'actions', 'systeme',
+      'overlay', 'overlay-box', 'aide-souris']
+      .forEach(id => { el[id] = document.getElementById(id); });
+
+    Scene3D.init(el.vue);
+    Scene3D.surFrame(majAncrages);
+    Scene3D.surSurvol(majSurvol);
+
+    // le viseur suit le pointeur (souris) ; il reste au centre au doigt
+    el.vue.addEventListener('pointermove', (e) => {
+      if (e.pointerType === 'touch') return;
+      el.viseur.style.left = e.clientX + 'px';
+      el.viseur.style.top = e.clientY + 'px';
+      el.viseur.style.transform = 'translate(-50%,-50%)';
+    });
+    setTimeout(() => el['aide-souris'].classList.add('parti'), 9000);
   }
 
-  /* ---------------- HUD ---------------- */
-  function pct(v) { return Math.max(0, Math.min(100, Math.round(v))); }
-  function jauge(id, val, danger) {
-    const barre = document.getElementById('j-' + id);
-    const txt = document.getElementById('v-' + id);
-    if (!barre) return;
-    const v = pct(val);
-    if (barre.style.width !== v + '%') {
-      barre.style.width = v + '%';
-      const j = barre.closest('.jauge');
-      j.classList.remove('pulse'); void j.offsetWidth; j.classList.add('pulse');
-      j.classList.toggle('danger', !!danger);
-    }
-    txt.textContent = v;
+  /* ============================================================
+     ATH
+     ============================================================ */
+  const pct = (v) => Math.max(0, Math.min(100, Math.round(v)));
+  function jauge(id, valeur, texte, alerte) {
+    const n = document.getElementById(id);
+    if (!n) return;
+    n.querySelector('.jg-val').textContent = texte;
+    const barre = n.querySelector('i');
+    if (barre) barre.style.width = pct(valeur) + '%';
+    n.classList.toggle('alerte', !!alerte);
   }
   function heureTxt(min) {
     const h = Math.floor(min / 60) % 24, m = Math.floor(min % 60);
     return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
   }
+
   function majHUD(E) {
-    el['hud-jour'].textContent = 'Jour ' + E.jour;
+    el['hud-jour'].textContent = JOURS_SEMAINE[E.jour - 1] || ('JOUR ' + E.jour);
     el['hud-heure'].textContent = heureTxt(E.heure);
-    el['hud-argent'].textContent = Math.round(E.argent) + ' €';
-    el['hud-file'].textContent = E.file.length;
-    jauge('mech', E.mech);
-    jauge('risk', E.risk, E.risk >= 75);
-    jauge('rep', E.rep);
-    jauge('pat', E.pat, E.pat <= 20);
-    jauge('vit', E.vit);
+    el['hud-magasin'].textContent = E.cfg ? E.cfg.magasin : '';
+    jauge('jg-mech', E.mech, Math.round(E.mech) + ' %');
+    jauge('jg-risk', E.risk, Math.round(E.risk) + ' %', E.risk >= 75);
+    jauge('jg-caisse', 0, E.argent.toFixed(2).replace('.', ',') + ' €');
+    jauge('jg-rep', E.rep, Math.round(E.rep));
+    jauge('jg-pat', E.pat, Math.round(E.pat), E.pat <= 20);
+    jauge('jg-vit', E.vit, Math.round(E.vit));
+    jauge('jg-file', 0, E.file.length);
   }
 
   function preparerJour(E) {
     el.hud.classList.remove('hidden');
-    el.scene.classList.remove('hidden');
-    el.panneau.classList.remove('hidden');
-    el.enseigne.textContent = E.cfg.magasin.toUpperCase();
-    el['num-caisse'].textContent = E.cfg.caisse;
-    responsable(false);
-    scannerCasse(false);
-    tpe('');
-    el['client-avatar'].innerHTML = '';
-    el['client-nom'].textContent = '—';
-    el.articles.innerHTML = '';
+    Scene3D.majEnseigne(E.cfg.magasin);
+    Scene3D.majNumeroCaisse(E.cfg.caisse);
+    Scene3D.ecranTpe('');
+    Scene3D.scannerCasse(false);
+    Scene3D.responsable(false);
+    Scene3D.majTotal(0);
     bulleClient(null); bulleCaissiere(null);
+    Son.ambianceMagasin(true);
+    if (matchMedia('(max-width:640px)').matches && E.jour === 1) {
+      toast('👆 Glissez pour regarder autour de vous, touchez les objets.', 'info');
+    }
   }
 
-  /* ---------------- file d'attente ---------------- */
-  function majFile(file, max) {
-    const n = file.length;
-    const visibles = file.slice(0, 5);
-    el['file-attente'].innerHTML = visibles.map(f =>
-      '<div class="file-tete">' + Visages.tete(f, Math.random() < 0.5 ? 'blase' : 'desabuse') + '</div>').join('')
-      + (n > 5 ? '<span class="file-plus">+' + (n - 5) + '</span>' : '');
-    if (n > max) el['file-attente'].style.filter = 'drop-shadow(0 0 6px rgba(232,69,60,.8))';
-    else el['file-attente'].style.filter = '';
-  }
-
-  /* ---------------- client ---------------- */
+  /* ============================================================
+     Client
+     ============================================================ */
   function clientArrive(cl) {
-    el['client-avatar'].innerHTML = Visages.dessine(cl.face, cl.irr > 30 ? 'enerve' : 'neutre');
-    el['client-nom'].textContent = cl.profil.emoji + ' ' + cl.nom;
-    el['zone-client'].classList.remove('sortie');
-    el['zone-client'].classList.remove('entree'); void el['zone-client'].offsetWidth;
-    el['zone-client'].classList.add('entree');
-    articlesEnCours = cl.articles.slice();
+    clientCourant = cl;
     totalCourant = 0; nbScannes = 0;
-    el.articles.innerHTML = articlesEnCours.map((a, i) =>
-      '<span class="article" data-i="' + i + '" style="animation-delay:' + (i * 55) + 'ms">' + a.emo + '</span>').join('');
-    Son.tapis();
+    Scene3D.nouveauClient(cl.face);
+    Scene3D.majTotal(0);
+    // le client décharge son caddie sur le tapis
+    setTimeout(() => {
+      if (clientCourant === cl) Scene3D.poserArticles(cl.articles);
+    }, 700);
+    if (cl.profil.id === 'telephone') setTimeout(() => Scene3D.animClient('telephone'), 1100);
     toast(cl.profil.emoji + ' ' + cl.nom + " — " + cl.profil.desc, 'info');
-  }
-  function clientPart() {
-    el['zone-client'].classList.add('sortie');
-    setTimeout(() => { el['client-avatar'].innerHTML = ''; el.articles.innerHTML = ''; }, 480);
-  }
-  function humeurClient(h) {
-    const cl = Jeu.etat() && Jeu.etat().client;
-    if (!cl) return;
-    el['client-avatar'].innerHTML = Visages.dessine(cl.face, h);
-  }
-  function humeurCaissiere(h) {
-    humeurCaiss = h;
-    el['caissiere-avatar'].innerHTML = Visages.dessine(faceCaissiere, h);
-  }
-  function secoueClient() {
-    const z = el['zone-client'];
-    z.classList.remove('secoue'); void z.offsetWidth; z.classList.add('secoue');
-    setTimeout(() => z.classList.remove('secoue'), 420);
-  }
-  function regardeDerriere() {
-    const z = el['zone-client'];
-    z.classList.remove('regarde-derriere'); void z.offsetWidth; z.classList.add('regarde-derriere');
-    setTimeout(() => z.classList.remove('regarde-derriere'), 1000);
-  }
-  function soupirCaissiere() {
-    const z = el['zone-caissiere'];
-    z.classList.remove('soupir'); void z.offsetWidth; z.classList.add('soupir');
-    setTimeout(() => z.classList.remove('soupir'), 800);
-  }
-  function yeuxAuCiel() {
-    const z = el['zone-caissiere'];
-    z.classList.remove('yeux'); void z.offsetWidth; z.classList.add('yeux');
-    setTimeout(() => z.classList.remove('yeux'), 900);
+    Son.caddie();
   }
 
-  /* ---------------- bulles ---------------- */
+  function clientPart() {
+    clientCourant = null;
+    derniereReplique = null;
+    Scene3D.clientPart();
+    Scene3D.viderArticles();
+    bulleClient(null);
+    bulleCaissiere(null);
+  }
+
+  function humeurClient(h) {
+    Scene3D.humeurClient(h);
+    if (h === 'furieux' || h === 'enerve') Scene3D.secousse(0.12);
+  }
+
+  /* la caissière n'est pas visible (on est dans ses yeux) :
+     son humeur se traduit par un mouvement de caméra */
+  function humeurCaissiere(h) {
+    if (h === 'sarcastique' || h === 'desabuse') Scene3D.secousse(0.08);
+  }
+
+  function secoueClient() { Scene3D.animClient('secoue'); }
+  function regardeDerriere() { Scene3D.animClient('regardeDerriere'); }
+
+  function soupirCaissiere() {   // la tête s'affaisse puis remonte
+    Scene3D.animCamera('soupir');
+  }
+  function yeuxAuCiel() {        // le regard part au plafond
+    Scene3D.animCamera('yeux');
+  }
+
+  /* étapes du client, signalées par le moteur */
+  function phase(type, kind) {
+    if (!clientCourant) return;
+    if (type === 'paiement') {
+      const mode = clientCourant.profil.paiement;
+      Scene3D.animClient(mode === 'carte' || mode === 'sanscontact' ? 'portefeuille' : 'portefeuille');
+    } else if (kind === 'depart') {
+      Scene3D.animClient('sac');
+    } else if (kind === 'beat' && Math.random() < 0.35) {
+      Scene3D.animClient(Math.random() < 0.5 ? 'montre' : 'bras');
+    }
+  }
+
+  /* ============================================================
+     Bulles
+     ============================================================ */
   function bulleClient(txt) {
-    if (!txt) { el['bulle-client'].classList.add('hidden'); return; }
+    if (!txt) { el['bulle-client'].classList.add('hidden'); derniereReplique = null; return; }
+    derniereReplique = txt;
+    el['bulle-client-nom'].textContent = clientCourant
+      ? clientCourant.profil.emoji + ' ' + clientCourant.nom : '';
     el['bulle-client-txt'].textContent = txt;
     el['bulle-client'].classList.remove('hidden');
-    el['bulle-client'].style.animation = 'none'; void el['bulle-client'].offsetWidth;
+    el['bulle-client'].style.animation = 'none';
+    void el['bulle-client'].offsetWidth;
     el['bulle-client'].style.animation = '';
+    majAncrages();
   }
+  function rappelBulle() { if (derniereReplique) bulleClient(derniereReplique); }
+
   function bulleCaissiere(txt) {
     if (!txt) { el['bulle-caissiere'].classList.add('hidden'); return; }
-    el['bulle-caissiere-txt'].textContent = txt;
+    el['bulle-caissiere'].textContent = txt;
     el['bulle-caissiere'].classList.remove('hidden');
-    el['bulle-caissiere'].style.animation = 'none'; void el['bulle-caissiere'].offsetWidth;
-    el['bulle-caissiere'].style.animation = '';
   }
 
-  /* ---------------- matériel ---------------- */
+  /* place la bulle du client au-dessus de sa tête, à chaque image */
+  function majAncrages() {
+    const b = el['bulle-client'];
+    if (!b || b.classList.contains('hidden')) return;
+    const p = Scene3D.positionEcran('client');
+    if (!p) return;
+    const demi = b.offsetWidth / 2 + 8;
+    b.style.left = Math.max(demi, Math.min(window.innerWidth - demi, p.x)) + 'px';
+    // sur téléphone, on laisse la place aux jauges et aux messages du haut
+    const hautMin = matchMedia('(max-width:640px)').matches ? b.offsetHeight + 150 : b.offsetHeight + 46;
+    b.style.top = Math.max(hautMin, p.y) + 'px';
+    b.style.opacity = p.visible ? 1 : 0.25;
+  }
+
+  /* ============================================================
+     Matériel de caisse
+     ============================================================ */
   function scanArticle() {
-    const noeud = el.articles.querySelector('.article:not(.scanne)');
-    if (noeud) {
-      noeud.classList.add('scanne');
-      setTimeout(() => noeud.remove(), 400);
-      const a = articlesEnCours[nbScannes];
-      if (a) totalCourant += a.prix;
+    Scene3D.scannerArticle((art) => {
+      totalCourant += art.prix;
       nbScannes++;
-      ticket(totalCourant, nbScannes, true);
-    }
-    el.scanner.classList.remove('bip'); void el.scanner.offsetWidth; el.scanner.classList.add('bip');
-    setTimeout(() => el.scanner.classList.remove('bip'), 240);
+      Scene3D.majTotal(totalCourant);
+    });
+    Scene3D.secousse(0.1);
   }
-  function tapisRoule(on) { el.tapis.classList.toggle('roule', !!on); if (on) Son.tapis(); }
-  function scannerCasse(on) { el.scanner.classList.toggle('casse', !!on); }
-  function tpe(etat) {
-    el.tpe.classList.remove('ok', 'ko');
-    if (etat) el.tpe.classList.add(etat);
-    el.tpe.querySelector('.tpe-ecran').textContent = etat === 'ok' ? 'OK' : (etat === 'ko' ? 'ERR' : 'CB');
-  }
-  function tiroirOuvre() {
-    el.tiroir.classList.remove('ouvert'); void el.tiroir.offsetWidth; el.tiroir.classList.add('ouvert');
-    setTimeout(() => el.tiroir.classList.remove('ouvert'), 520);
-  }
+  function tapisRoule(on) { Scene3D.tapisRoule(on); }
+  function scannerCasse(on) { Scene3D.scannerCasse(on); }
+  function tpe(etat) { Scene3D.ecranTpe(etat); if (etat === 'ok' && clientCourant) Scene3D.animClient('carte'); }
+  function tiroirOuvre() { Scene3D.ouvrirTiroir(); }
   function ticket(total, n, visible) {
-    el['ticket-info'].classList.toggle('hidden', !visible);
-    el['ticket-total'].textContent = total.toFixed(2).replace('.', ',') + ' €';
-    el['ticket-details'].textContent = n + (n > 1 ? ' articles' : ' article');
-  }
-
-  /* ---------------- responsable ---------------- */
-  function responsable(afficher, txt) {
-    if (afficher) {
-      el['resp-avatar'].innerHTML = Visages.dessine(faceResp, 'desabuse');
-      el['resp-bulle'].textContent = txt || "Tout va bien ?";
-      el.responsable.classList.remove('hidden');
-      el.responsable.style.animation = 'none'; void el.responsable.offsetWidth; el.responsable.style.animation = '';
-    } else {
-      el.responsable.classList.add('hidden');
+    if (visible && total > 0) {
+      Scene3D.majTotal(total);
+      Scene3D.etiquetteTotal(total, n);
+    } else if (!visible) {
+      Scene3D.majTotal(0);
     }
+  }
+  function responsable(afficher, txt) {
+    Scene3D.responsable(afficher);
+    if (afficher && txt) toast('👔 ' + txt, 'mal');
   }
   function evenement(ev) {
     toast('⚠️ ' + ev.ico + ' ' + ev.titre, 'mal');
+    Scene3D.secousse(0.2);
     Son.bipRate();
   }
 
-  /* ---------------- feedback ---------------- */
+  /* ============================================================
+     Retours visuels
+     ============================================================ */
   function volant(txt, couleur) {
     const d = document.createElement('div');
     d.className = 'volant';
     d.textContent = txt;
     d.style.color = couleur || '#fff';
-    d.style.left = (30 + Math.random() * 40) + '%';
-    d.style.top = (40 + Math.random() * 20) + '%';
+    d.style.left = (46 + Math.random() * 22) + '%';
+    d.style.top = (44 + Math.random() * 14) + '%';
     el.volants.appendChild(d);
-    setTimeout(() => d.remove(), 1200);
+    setTimeout(() => d.remove(), 1250);
   }
   function toast(txt, type) {
     const d = document.createElement('div');
     d.className = 'toast ' + (type || '');
     d.textContent = txt;
     el.toasts.appendChild(d);
-    setTimeout(() => d.remove(), 2600);
+    setTimeout(() => d.remove(), 2800);
+  }
+  function annonce(txt) {
+    el.annonce.textContent = '📢 ' + txt;
+    el.annonce.classList.remove('hidden');
+    clearTimeout(el.annonce.__t);
+    el.annonce.__t = setTimeout(() => el.annonce.classList.add('hidden'), 6000);
   }
 
-  /* ---------------- panneau de choix ---------------- */
-  function titreChoix(txt) {
-    let t = document.getElementById('titre-choix');
-    if (!txt) { if (t) t.remove(); return; }
-    if (!t) {
-      t = document.createElement('div');
-      t.id = 'titre-choix';
-      t.style.cssText = 'font-weight:bold;font-size:13px;margin-bottom:5px;text-align:center';
-      el.choix.parentNode.insertBefore(t, el.choix);
-    }
-    t.textContent = txt;
-  }
+  /* ============================================================
+     Réponses
+     ============================================================ */
+  function titreChoix(txt) { el['titre-choix'].textContent = txt || ''; }
 
   function afficherChoix(liste, jour, cb) {
     el.choix.innerHTML = '';
@@ -229,54 +248,78 @@ const UI = (function () {
       const b = document.createElement('button');
       b.className = 'choix-btn' + (c.d === jour && jour > 1 ? ' neuf' : '');
       b.dataset.ton = c.ton;
-      b.innerHTML = '<span class="emo">' + c.e + '</span><span>' + c.t + '</span>';
+      b.innerHTML = '<span class="num">' + (i + 1) + '</span>' +
+        '<span class="emo">' + c.e + '</span><span>' + c.t + '</span>';
       b.addEventListener('click', () => { if (cb) cb(i); });
       el.choix.appendChild(b);
     });
   }
+  function choisirParTouche(n) {
+    const b = el.choix.querySelectorAll('.choix-btn')[n - 1];
+    if (b) { b.click(); return true; }
+    return false;
+  }
 
   function majActions(actions, etats) {
     boutons = etats || boutons;
-    const map = { soupir: 'act-soupir', yeux: 'act-yeux', pause: 'act-pause', prix: 'act-prix' };
-    Object.keys(map).forEach(k => {
-      const b = document.getElementById(map[k]);
-      b.querySelector('.cpt').textContent = actions[k];
+    el.actions.querySelectorAll('.act').forEach(b => {
+      const k = b.dataset.act;
+      b.querySelector('b').textContent = actions[k];
       b.disabled = actions[k] <= 0;
     });
-    const sc = document.getElementById('act-scanner');
-    const en = document.getElementById('act-encaisser');
-    sc.disabled = !boutons.scanner;
-    en.disabled = !boutons.encaisser;
-    sc.classList.toggle('dispo', !!boutons.scanner);
-    en.classList.toggle('dispo', !!boutons.encaisser);
+    Scene3D.interactifs({ scanner: !!boutons.scanner, tpe: !!boutons.encaisser });
+    majSurvol(survol);
   }
   function etatBoutons() { return boutons; }
 
-  /* ---------------- overlays ---------------- */
+  /* libellé du viseur selon l'objet visé */
+  function majSurvol(nom) {
+    survol = nom;
+    const v = el.viseur, t = el['viseur-txt'];
+    let txt = '';
+    if (nom === 'scanner') txt = boutons.scanner ? 'Scanner un article' : 'Scanner';
+    else if (nom === 'article') txt = boutons.scanner ? 'Scanner cet article' : 'Article';
+    else if (nom === 'tpe') txt = boutons.encaisser ? 'Encaisser' : 'Terminal de paiement';
+    else if (nom === 'tiroir') txt = 'Tiroir-caisse';
+    else if (nom === 'client') txt = clientCourant ? clientCourant.nom : 'Client';
+    t.textContent = txt;
+    const actif = !!txt && ((nom === 'scanner' || nom === 'article') ? boutons.scanner
+      : (nom === 'tpe' ? boutons.encaisser : true));
+    v.classList.toggle('actif', actif);
+  }
+
+  /* ============================================================
+     Overlays (titre, aide, réglages, bilans, fins)
+     ============================================================ */
   function ouvrirOverlay(html) {
     el['overlay-box'].innerHTML = html;
     el.overlay.classList.remove('hidden');
   }
   function fermerOverlay() { el.overlay.classList.add('hidden'); }
+  function overlayOuvert() { return !el.overlay.classList.contains('hidden'); }
 
   function overlayTitre(save, onJouer, onAide) {
-    const vitrine = [CLIENTS[0], CLIENTS[1], CLIENTS[3], CLIENTS[8]]
-      .map(c => '<div>' + Visages.dessine(c.face, 'desabuse') + '</div>').join('');
     let reprise = '';
     if (save.jourMax && save.jourMax > 1) {
       reprise = '<button class="gros-bouton" id="btn-reprendre">▶️ Reprendre au jour ' + save.jourMax + '</button>';
     }
+    // petite galerie de clients, dessinée par le générateur de visages
+    const vitrine = [CLIENTS[0], CLIENTS[1], CLIENTS[8], CLIENTS[13]]
+      .map((c, i) => '<div>' + Visages.dessine(c.face, ['desabuse', 'enerve', 'blase', 'sarcastique'][i]) + '</div>')
+      .join('');
     ouvrirOverlay(
-      '<h1 class="titre-jeu">La Caissière<br>la Plus Insupportable<small>SIMULATION DE CAISSE</small></h1>' +
-      '<div class="vitrine">' + vitrine + '<div>' + Visages.dessine(faceCaissiere, 'sarcastique') + '</div></div>' +
-      '<p class="sous">Vous êtes Josiane, caissière. Votre mission : devenir la caissière la plus insupportable du magasin… <b>sans vous faire licencier</b>.</p>' +
-      '<button class="gros-bouton vert" id="btn-jouer">😈 Commencer le jour 1</button>' +
+      '<h1 class="titre-jeu">La Caissière<br>la Plus Insupportable<small>SIMULATION DE CAISSE · VUE SUBJECTIVE</small></h1>' +
+      '<div class="vitrine">' + vitrine + '</div>' +
+      '<p class="sous">Vous êtes Josiane. Vous voyez le magasin par ses yeux, depuis sa caisse. ' +
+      'Votre mission : devenir la caissière la plus insupportable du magasin… <b>sans vous faire licencier</b>.</p>' +
+      '<button class="gros-bouton vert" id="btn-jouer">😈 Prendre son poste — jour 1</button>' +
       reprise +
-      '<button class="gros-bouton gris" id="btn-aide">❓ Comment jouer</button>' +
-      (save.meilleurScore ? '<p class="sous" style="margin-top:8px">🏅 Meilleur score de désagréabilité : <b>' + save.meilleurScore + '</b></p>' : '')
+      '<button class="gros-bouton" id="btn-aide">❓ Comment jouer</button>' +
+      (save.meilleurScore ? '<p class="sous" style="margin-top:8px">🏅 Meilleur score : <b>' + save.meilleurScore + '</b></p>' : '')
     );
     document.getElementById('btn-jouer').onclick = () => onJouer(1);
-    if (document.getElementById('btn-reprendre')) document.getElementById('btn-reprendre').onclick = () => onJouer(save.jourMax);
+    const r = document.getElementById('btn-reprendre');
+    if (r) r.onclick = () => onJouer(save.jourMax);
     document.getElementById('btn-aide').onclick = onAide;
   }
 
@@ -284,36 +327,93 @@ const UI = (function () {
     ouvrirOverlay(
       '<h2>❓ Comment jouer</h2>' +
       '<div class="aide">' +
-      '<p><b>Le principe :</b> chaque client passe à votre caisse. À chaque réplique, vous choisissez votre réponse, du plus <b>gentil</b> 😊 au plus <b>diabolique</b> 😈.</p>' +
-      '<p><b>😈 Désagréabilité</b> monte quand vous êtes odieuse. C\'est votre score.<br>' +
-      '<b>👔 Risque de licenciement</b> monte aussi. À <b>100 %</b>, le responsable arrive et c\'est fini.<br>' +
-      '<b>⭐ Réputation</b> baisse avec les plaintes.<br>' +
-      '<b>🧘 Patience</b> descend quand vous êtes aimable ; à zéro, vous craquez toute seule.<br>' +
-      '<b>⚡ Vitesse</b> : si vous traînez, la file s\'allonge et le risque monte.</p>' +
-      '<p><b>Boutons :</b> 🔴 Scanner (un appui par article), 💰 Encaisser, et les actions gratuites : 😮‍💨 Soupirer, 🙄 Yeux au ciel, 🐌 Pause imprévue, 📢 Contrôle de prix.</p>' +
-      '<p><b>But :</b> survivre 5 journées et finir avec la désagréabilité la plus haute possible. Trop loin = licenciée. Pas assez loin = employée modèle (la honte).</p>' +
+      '<p><b>Vue subjective.</b> Bougez la souris pour regarder autour de vous, glissez pour pivoter plus vite. ' +
+      'Au doigt : glissez pour regarder, touchez pour interagir.</p>' +
+      '<p><b>Interagir :</b> cliquez le <b>scanner</b> ou un <b>article</b> pour le scanner, le <b>terminal</b> pour encaisser, ' +
+      'le <b>client</b> pour lui faire répéter. Le viseur s\'allume quand un objet est utilisable.</p>' +
+      '<p><b>Répondre :</b> les réponses apparaissent en bas. Touches <kbd>1</kbd> à <kbd>5</kbd> ou clic. ' +
+      'Du plus gentil 😊 au plus diabolique 😈.</p>' +
+      '<p><b>Petites cruautés :</b> <kbd>S</kbd> soupirer, <kbd>Y</kbd> lever les yeux au ciel, ' +
+      '<kbd>P</kbd> pause imprévue, <kbd>C</kbd> contrôle de prix. Usages limités par client.</p>' +
+      '<p><b>Jauges (en bas à gauche) :</b> 😈 désagréabilité = votre score. 👔 risque de licenciement : à 100 %, ' +
+      'le responsable arrive et c\'est fini. 🧘 patience : à zéro, Josiane craque toute seule. ' +
+      '⚡ vitesse : si vous traînez, la file s\'allonge.</p>' +
+      '<p><b>But :</b> tenir 5 journées avec la désagréabilité la plus haute possible.</p>' +
       '</div>' +
       '<button class="gros-bouton" id="btn-retour">⬅️ Retour</button>'
     );
     document.getElementById('btn-retour').onclick = retour;
   }
 
+  function overlayReglages(retour) {
+    const r = Scene3D.litReglages();
+    ouvrirOverlay(
+      '<h2>⚙️ Réglages</h2>' +
+      '<div class="reglage"><span>🖱️ Sensibilité de la souris</span>' +
+      '<input type="range" id="rg-sens" min="0.3" max="2.5" step="0.1" value="' + r.sensibilite + '"><b id="rg-sens-val">' + r.sensibilite.toFixed(1) + '</b></div>' +
+      '<div class="reglage"><span>💨 Flou de mouvement</span>' +
+      '<button class="bascule' + (r.flou ? ' on' : '') + '" id="rg-flou">' + (r.flou ? 'ACTIVÉ' : 'COUPÉ') + '</button></div>' +
+      '<div class="reglage"><span>📳 Tremblement de caméra</span>' +
+      '<button class="bascule' + (r.secousse ? ' on' : '') + '" id="rg-sec">' + (r.secousse ? 'ACTIVÉ' : 'COUPÉ') + '</button></div>' +
+      '<div class="reglage"><span>🔊 Son</span>' +
+      '<button class="bascule' + (Son.estMuet() ? '' : ' on') + '" id="rg-son">' + (Son.estMuet() ? 'COUPÉ' : 'ACTIVÉ') + '</button></div>' +
+      '<button class="gros-bouton" id="btn-retour">⬅️ Retour</button>'
+    );
+    const sens = document.getElementById('rg-sens');
+    sens.oninput = () => {
+      const v = parseFloat(sens.value);
+      document.getElementById('rg-sens-val').textContent = v.toFixed(1);
+      Scene3D.reglages({ sensibilite: v });
+      sauverReglages();
+    };
+    const bascule = (id, cle) => {
+      const b = document.getElementById(id);
+      b.onclick = () => {
+        const nouveau = !Scene3D.litReglages()[cle];
+        Scene3D.reglages({ [cle]: nouveau });
+        b.classList.toggle('on', nouveau);
+        b.textContent = nouveau ? 'ACTIVÉ' : 'COUPÉ';
+        sauverReglages();
+      };
+    };
+    bascule('rg-flou', 'flou');
+    bascule('rg-sec', 'secousse');
+    const bs = document.getElementById('rg-son');
+    bs.onclick = () => {
+      const muet = Son.basculerMuet();
+      bs.classList.toggle('on', !muet);
+      bs.textContent = muet ? 'COUPÉ' : 'ACTIVÉ';
+      document.getElementById('btn-son').textContent = muet ? '🔇' : '🔊';
+    };
+    document.getElementById('btn-retour').onclick = retour;
+  }
+
+  function sauverReglages() {
+    try { localStorage.setItem('caissiere_reglages', JSON.stringify(Scene3D.litReglages())); } catch (e) {}
+  }
+  function chargerReglages() {
+    try {
+      const r = JSON.parse(localStorage.getItem('caissiere_reglages'));
+      if (r) Scene3D.reglages(r);
+    } catch (e) {}
+  }
+
   function overlayJour(cfg, onGo) {
     ouvrirOverlay(
-      '<h1>📅 Jour ' + cfg.n + '</h1>' +
+      '<h1>📅 Jour ' + cfg.n + ' — ' + (JOURS_SEMAINE[cfg.n - 1] || '') + '</h1>' +
       '<h2>' + cfg.magasin + ' — caisse n°' + cfg.caisse + '</h2>' +
       '<p class="sous">' + cfg.intro + '</p>' +
       '<div class="deblocages"><h3>🔓 Débloqué aujourd\'hui</h3><ul>' +
       cfg.deblocages.map(d => '<li>' + d + '</li>').join('') + '</ul></div>' +
-      '<p class="sous">👥 ' + cfg.clients + ' clients — ouverture ' + heureTxt(cfg.ouverture) + ', fermeture ' + heureTxt(cfg.fermeture) + '</p>' +
+      '<p class="sous">👥 ' + cfg.clients + ' clients — ouverture ' + heureTxt(cfg.ouverture) +
+      ', fermeture ' + heureTxt(cfg.fermeture) + '</p>' +
       '<button class="gros-bouton vert" id="btn-go">Ouvrir la caisse</button>'
     );
     document.getElementById('btn-go').onclick = onGo;
   }
 
-  function ligne(ico, lab, val, i) {
-    return '<li style="animation-delay:' + (i * 70) + 'ms"><span>' + ico + ' ' + lab + '</span><b>' + val + '</b></li>';
-  }
+  const ligne = (ico, lab, val, i) =>
+    '<li style="animation-delay:' + (i * 60) + 'ms"><span>' + ico + ' ' + lab + '</span><b>' + val + '</b></li>';
 
   function overlayBilan(E, titre, onSuite) {
     const s = E.stats;
@@ -337,7 +437,8 @@ const UI = (function () {
       '</ul>' +
       '<div class="titre-obtenu">' + titre.ico + ' « ' + titre.nom + ' »</div>' +
       '<p class="sous">' + titre.txt + '</p>' +
-      '<button class="gros-bouton vert" id="btn-suite">' + (dernier ? '🏁 Voir la fin de votre carrière' : '➡️ Jour ' + (E.jour + 1)) + '</button>'
+      '<button class="gros-bouton vert" id="btn-suite">' +
+      (dernier ? '🏁 Voir la fin de votre carrière' : '➡️ Jour ' + (E.jour + 1)) + '</button>'
     );
     document.getElementById('btn-suite').onclick = () => { fermerOverlay(); onSuite(); };
   }
@@ -360,35 +461,41 @@ const UI = (function () {
       ligne('💰', "Chiffre d'affaires", Math.round(E.argent) + ' €', 9) +
       '</ul>' +
       '<button class="gros-bouton vert" id="btn-rejouer">🔁 Recommencer une carrière</button>' +
-      (licenciee ? '<button class="gros-bouton" id="btn-rejour">↩️ Refaire le jour ' + E.jour + '</button>' : '')
+      (licenciee ? '<button class="gros-bouton jaune" id="btn-rejour">↩️ Refaire le jour ' + E.jour + '</button>' : '')
     );
     document.getElementById('btn-rejouer').onclick = () => { fermerOverlay(); Jeu.nouvellePartie(1); };
     const r = document.getElementById('btn-rejour');
     if (r) r.onclick = () => { fermerOverlay(); Jeu.nouvellePartie(E.jour); };
   }
 
-  function overlayMenu(onReprendre, onRejouerJour, onNouvelle, onAide) {
+  function overlayMenu(onReprendre, onRejouerJour, onNouvelle, onAide, onReglages) {
     const E = Jeu.etat();
     ouvrirOverlay(
       '<h2>☰ Menu</h2>' +
-      '<div class="menu-liste">' +
       '<button class="gros-bouton vert" id="m-reprendre">▶️ Reprendre</button>' +
       (E ? '<button class="gros-bouton" id="m-jour">↩️ Recommencer le jour ' + E.jour + '</button>' : '') +
+      '<button class="gros-bouton" id="m-reglages">⚙️ Réglages</button>' +
       '<button class="gros-bouton" id="m-aide">❓ Comment jouer</button>' +
-      '<button class="gros-bouton rouge" id="m-nouvelle">🔁 Nouvelle carrière</button>' +
-      '</div>'
+      '<button class="gros-bouton rouge" id="m-nouvelle">🔁 Nouvelle carrière</button>'
     );
     document.getElementById('m-reprendre').onclick = onReprendre;
-    if (document.getElementById('m-jour')) document.getElementById('m-jour').onclick = onRejouerJour;
+    const j = document.getElementById('m-jour');
+    if (j) j.onclick = onRejouerJour;
+    document.getElementById('m-reglages').onclick = onReglages;
     document.getElementById('m-aide').onclick = onAide;
     document.getElementById('m-nouvelle').onclick = onNouvelle;
   }
 
   return {
-    init, majHUD, preparerJour, majFile, clientArrive, clientPart, humeurClient, humeurCaissiere,
-    secoueClient, regardeDerriere, soupirCaissiere, yeuxAuCiel, bulleClient, bulleCaissiere,
-    scanArticle, tapisRoule, scannerCasse, tpe, tiroirOuvre, ticket, responsable, evenement,
-    volant, toast, titreChoix, afficherChoix, majActions, etatBoutons,
-    ouvrirOverlay, fermerOverlay, overlayTitre, overlayAide, overlayJour, overlayBilan, overlayFin, overlayMenu
+    init, chargerReglages,
+    majHUD, preparerJour, majFile: (file) => Scene3D.majFile(file.length, file),
+    clientArrive, clientPart, humeurClient, humeurCaissiere,
+    secoueClient, regardeDerriere, soupirCaissiere, yeuxAuCiel,
+    bulleClient, bulleCaissiere, rappelBulle, phase,
+    scanArticle, tapisRoule, scannerCasse, tpe, tiroirOuvre, ticket,
+    responsable, evenement, volant, toast, annonce,
+    titreChoix, afficherChoix, choisirParTouche, majActions, etatBoutons,
+    ouvrirOverlay, fermerOverlay, overlayOuvert,
+    overlayTitre, overlayAide, overlayReglages, overlayJour, overlayBilan, overlayFin, overlayMenu
   };
 })();

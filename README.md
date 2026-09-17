@@ -1,8 +1,12 @@
 # 😒 La Caissière la Plus Insupportable
 
-Jeu web humoristique, entièrement en français : vous incarnez **Josiane**, caissière de
-supermarché. Le but n'est pas de bien faire votre travail — c'est de devenir la caissière
+Jeu web humoristique **en vue subjective (FPS)**, entièrement en français : vous êtes
+**Josiane**, caissière de supermarché, et vous voyez le magasin par ses yeux, depuis sa
+caisse. Le but n'est pas de bien faire votre travail — c'est de devenir la caissière
 **la plus insupportable du magasin**… sans vous faire licencier.
+
+Le décor est rendu en 3D avec [three.js](https://threejs.org), embarqué dans le dépôt
+(`js/vendor/`) : aucun CDN, le jeu fonctionne hors ligne.
 
 ## Lancer le jeu
 
@@ -14,6 +18,32 @@ ouvrir index.html dans un navigateur
 
 (ou, si vous préférez un serveur local : `python3 -m http.server` puis
 <http://localhost:8000>). Fonctionne sur ordinateur et sur mobile.
+
+## La vue subjective
+
+Vous êtes debout derrière la caisse. Devant vous : le tapis roulant, les articles que le
+client décharge, le scanner, le terminal de paiement, la caisse enregistreuse, la zone
+d'ensachage — et vos propres mains, qui attrapent les articles, les passent devant le
+scanner et vont chercher la monnaie dans le tiroir. En face, le client vous regarde dans
+les yeux ; derrière lui, la file s'allonge ; au fond, les rayons, les néons et les autres
+caisses.
+
+| Action | Comment |
+|---|---|
+| Regarder autour de soi | bouger la souris (la caméra suit avec de l'inertie) |
+| Pivoter plus vite | glisser en maintenant le bouton |
+| Scanner un article | cliquer le **scanner** ou directement l'**article** |
+| Encaisser | cliquer le **terminal de paiement** |
+| Faire répéter le client | cliquer sur **le client** |
+| Répondre | touches <kbd>1</kbd>…<kbd>5</kbd> ou clic sur la réponse |
+| Petites cruautés | <kbd>S</kbd> soupirer, <kbd>Y</kbd> yeux au ciel, <kbd>P</kbd> pause, <kbd>C</kbd> contrôle de prix |
+| Menu / réglages | <kbd>Échap</kbd> ou les boutons en haut à droite |
+
+Sur mobile : glisser pour regarder, toucher pour interagir.
+
+Le viseur s'allume et affiche le nom de l'objet quand il est utilisable. Les réglages
+permettent d'ajuster la **sensibilité de la souris** et de couper le **flou de mouvement**
+ou le **tremblement de caméra**.
 
 ## Le principe
 
@@ -45,10 +75,10 @@ Tout l'enjeu : trouver **jusqu'où on peut aller sans se faire virer**.
 
 ## Actions permanentes
 
-En plus des dialogues : 🔴 **Scanner** (un appui par article, avec le BIP),
-💰 **Encaisser**, et les petites cruautés gratuites — 😮‍💨 **Soupirer**,
-🙄 **Lever les yeux au ciel**, 🐌 **Pause imprévue** (temps d'attente volontaire),
-📢 **Contrôle de prix** hurlé dans le micro. Chacune a un nombre d'usages limité par client.
+En plus des dialogues : les petites cruautés gratuites — 😮‍💨 **Soupirer**,
+🙄 **Lever les yeux au ciel** (la caméra part littéralement au plafond), 🐌 **Pause
+imprévue** (temps d'attente volontaire), 📢 **Contrôle de prix** hurlé dans le micro.
+Chacune a un nombre d'usages limité par client.
 
 ## Contenu
 
@@ -70,14 +100,18 @@ En plus des dialogues : 🔴 **Scanner** (un appui par article, avec le BIP),
 - **6 titres de fin de journée** (« Caissière adorable » → « Légende de la mauvaise humeur »)
   et **6 fins de partie** avec leur petite scène : Employée modèle, Journée normale, Terreur
   de la caisse, Le responsable veut vous parler, Vous êtes licenciée, Légende.
+- **Animations du client** : il décharge son caddie, vous regarde, soupire, regarde sa
+  montre, croise les bras, sort son portefeuille, tend sa carte, prend son sac et s'en va.
+  Ses expressions faciales suivent son irritation, du sourire poli à la fureur.
 - **Sons synthétisés** en WebAudio (bip du scanner, tapis, tiroir-caisse, paiement accepté
-  ou refusé, soupirs, murmures de la file, musique d'ambiance) avec bouton 🔊 pour couper.
+  ou refusé, soupirs) et **ambiance de magasin** : bourdonnement des néons, bips des autres
+  caisses, brouhaha, roulement de caddies, musique d'ascenseur et annonces au micro
+  sous-titrées à l'écran. Bouton 🔊 pour tout couper.
 
 ## Commandes
 
-- **Souris / tactile** : tout se joue au clic ou au doigt.
-- **Clavier** : `1`–`5` choisissent une réplique, `Espace` scanne / encaisse, `S` soupire,
-  `Y` lève les yeux au ciel.
+Voir le tableau plus haut. <kbd>Espace</kbd> sert de raccourci pour scanner ou encaisser
+sans viser, et <kbd>Échap</kbd> ouvre le menu.
 
 La progression (jour atteint, meilleur score) est sauvegardée dans le navigateur
 (`localStorage`). Le menu ☰ permet de reprendre, recommencer la journée ou repartir de zéro.
@@ -85,15 +119,22 @@ La progression (jour atteint, meilleur score) est sauvegardée dans le navigateu
 ## Structure des fichiers
 
 ```
-index.html        structure de la page
-css/style.css     style cartoon, animations, mise en page responsive
-js/audio.js       moteur audio (sons synthétisés, aucun fichier externe)
-js/data.js        clients, dialogues, événements, journées, titres et fins
-js/faces.js       générateur de visages cartoon en SVG (expressions exagérées)
-js/ui.js          rendu, animations, écrans et overlays
-js/engine.js      moteur de jeu : boucle, jauges, réactions, score, fins
-js/main.js        démarrage et branchement des contrôles
+index.html          page et calques de l'ATH
+css/style.css       ATH discret, réponses, overlays, mise en page responsive
+js/vendor/          three.js r137 (build UMD, licence MIT) — embarqué, pas de CDN
+js/audio.js         sons synthétisés + ambiance du magasin (aucun fichier audio)
+js/data.js          clients, dialogues, événements, journées, titres et fins
+js/faces.js         expressions : version SVG (2D) et version canvas (texture 3D)
+js/scene3d.js       scène 3D : magasin, caisse, client, file, mains, caméra FPS
+js/ui.js            façade d'affichage : pilote la 3D et l'ATH
+js/engine.js        moteur de jeu : boucle, jauges, réactions, score, fins
+js/main.js          démarrage, souris, tactile et clavier
 ```
+
+Le passage en vue subjective n'a touché que la présentation : `engine.js` et `data.js`
+gardent les mêmes mécaniques, les mêmes dialogues et les mêmes sauvegardes. `ui.js` expose
+exactement la même façade qu'avant (`UI.majHUD`, `UI.clientArrive`, `UI.afficherChoix`…),
+mais la traduit en scène 3D.
 
 L'humour est volontairement absurde et caricatural : aucune attaque envers un groupe de
 personnes, aucune vulgarité — juste une caissière de très, très mauvaise humeur.

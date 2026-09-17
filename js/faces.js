@@ -193,3 +193,146 @@ const Visages = (function () {
 
   return { dessine, tete, alea };
 })();
+
+/* ============================================================
+   VISAGES 3D — mêmes expressions, dessinées sur un canvas pour
+   servir de texture au visage des personnages en vue FPS.
+   ============================================================ */
+Visages.canvasFace = (function () {
+
+  const SOURCILS = {
+    content:     { g: -8,  d: 8,  y: -46 },
+    neutre:      { g: 0,   d: 0,  y: -46 },
+    blase:       { g: 5,   d: -5, y: -50 },
+    desabuse:    { g: 12,  d: -12, y: -52 },
+    enerve:      { g: 24,  d: -24, y: -48 },
+    furieux:     { g: 32,  d: -32, y: -50 },
+    sarcastique: { g: -20, d: 7,  y: -50 },
+    choque:      { g: -16, d: 16, y: -58 },
+    triste:      { g: -22, d: 22, y: -48 },
+    rire:        { g: -11, d: 11, y: -50 }
+  };
+
+  function trait(ctx, x1, y1, x2, y2, larg, couleur) {
+    ctx.strokeStyle = couleur || '#2b1c10';
+    ctx.lineWidth = larg;
+    ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  }
+
+  function sourcils(ctx, cx, cy, h) {
+    const c = SOURCILS[h] || SOURCILS.neutre;
+    [[-1, c.g], [1, c.d]].forEach(([sens, angle]) => {
+      const ox = cx + sens * 38, oy = cy + c.y;
+      ctx.save();
+      ctx.translate(ox, oy);
+      ctx.rotate(angle * Math.PI / 180 * (sens < 0 ? 1 : 1));
+      trait(ctx, -20, 0, 20, 0, 9);
+      ctx.restore();
+    });
+  }
+
+  function oeil(ctx, x, y, h) {
+    if (h === 'rire') { // yeux plissés de rire
+      ctx.strokeStyle = '#2b1c10'; ctx.lineWidth = 8; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(x - 20, y + 6); ctx.quadraticCurveTo(x, y - 14, x + 20, y + 6); ctx.stroke();
+      return;
+    }
+    const grand = h === 'choque' ? 1.4 : (h === 'furieux' ? 1.15 : 1);
+    const rx = 21 * grand, ry = 23 * grand;
+    ctx.fillStyle = '#fff'; ctx.strokeStyle = '#2b1c10'; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    // pupille : en haut pour le regard blasé/désabusé, décalée pour le sarcasme
+    const haut = (h === 'blase' || h === 'desabuse');
+    const px = x + (h === 'sarcastique' ? 7 : 0);
+    const py = y + (haut ? -9 : 0);
+    ctx.fillStyle = '#2b1c10';
+    ctx.beginPath(); ctx.arc(px, py, h === 'choque' ? 6 : 9.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.9)';
+    ctx.beginPath(); ctx.arc(px + 3, py - 4, 3, 0, Math.PI * 2); ctx.fill();
+    if (haut) { // paupière tombante
+      ctx.fillStyle = 'rgba(0,0,0,0)';
+      ctx.strokeStyle = '#2b1c10'; ctx.lineWidth = 7;
+      ctx.beginPath(); ctx.moveTo(x - rx - 2, y - 4); ctx.quadraticCurveTo(x, y - ry - 6, x + rx + 2, y - 4); ctx.stroke();
+    }
+  }
+
+  function bouche(ctx, cx, y, h) {
+    ctx.strokeStyle = '#2b1c10'; ctx.lineWidth = 8; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.fillStyle = '#8c3b3b';
+    ctx.beginPath();
+    switch (h) {
+      case 'content':
+        ctx.moveTo(cx - 32, y - 8); ctx.quadraticCurveTo(cx, y + 30, cx + 32, y - 8); ctx.stroke(); break;
+      case 'rire':
+        ctx.moveTo(cx - 38, y - 14); ctx.quadraticCurveTo(cx, y + 42, cx + 38, y - 14); ctx.closePath();
+        ctx.fill(); ctx.stroke(); break;
+      case 'blase':
+        ctx.moveTo(cx - 28, y + 4); ctx.quadraticCurveTo(cx, y - 4, cx + 28, y + 4); ctx.stroke(); break;
+      case 'desabuse':
+        ctx.moveTo(cx - 30, y + 8); ctx.quadraticCurveTo(cx, y - 14, cx + 30, y + 4); ctx.stroke(); break;
+      case 'enerve':
+        ctx.moveTo(cx - 32, y + 12); ctx.quadraticCurveTo(cx, y - 20, cx + 32, y + 12); ctx.stroke(); break;
+      case 'furieux':
+        ctx.moveTo(cx - 36, y + 14); ctx.quadraticCurveTo(cx, y - 26, cx + 36, y + 14);
+        ctx.quadraticCurveTo(cx, y + 2, cx - 36, y + 14); ctx.fill(); ctx.stroke(); break;
+      case 'sarcastique':
+        ctx.moveTo(cx - 30, y + 6); ctx.quadraticCurveTo(cx, y - 2, cx + 32, y - 16); ctx.stroke(); break;
+      case 'choque':
+        ctx.ellipse(cx, y + 6, 17, 23, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); break;
+      case 'triste':
+        ctx.moveTo(cx - 30, y + 12); ctx.quadraticCurveTo(cx, y - 10, cx + 30, y + 12); ctx.stroke(); break;
+      default:
+        trait(ctx, cx - 28, y + 2, cx + 28, y + 2, 8);
+    }
+  }
+
+  /* dessine le visage (fond transparent) : sert de texture sur la tête 3D */
+  function dessiner(cfg, humeur, taille) {
+    cfg = cfg || {};
+    const h = humeur || 'neutre';
+    const T = taille || 256;
+    const c = document.createElement('canvas');
+    c.width = c.height = T;
+    const ctx = c.getContext('2d');
+    ctx.scale(T / 256, T / 256);
+    const cx = 128, cy = 118;
+
+    sourcils(ctx, cx, cy, h);
+    oeil(ctx, cx - 38, cy, h);
+    oeil(ctx, cx + 38, cy, h);
+
+    // nez
+    ctx.strokeStyle = 'rgba(43,28,16,.75)'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(cx, cy + 16); ctx.quadraticCurveTo(cx - 8, cy + 38, cx + 5, cy + 40); ctx.stroke();
+
+    bouche(ctx, cx, cy + 68, h);
+
+    if (cfg.lunettes) {
+      ctx.strokeStyle = '#2b1c10'; ctx.lineWidth = 6;
+      [-38, 38].forEach(dx => { ctx.beginPath(); ctx.arc(cx + dx, cy, 31, 0, Math.PI * 2); ctx.stroke(); });
+      trait(ctx, cx - 7, cy, cx + 7, cy, 5);
+      trait(ctx, cx - 69, cy - 4, cx - 88, cy - 12, 5);
+      trait(ctx, cx + 69, cy - 4, cx + 88, cy - 12, 5);
+    }
+    if (h === 'enerve' || h === 'furieux') {
+      ctx.fillStyle = 'rgba(255,120,120,.5)';
+      [-72, 72].forEach(dx => { ctx.beginPath(); ctx.ellipse(cx + dx, cy + 40, 22, 13, 0, 0, Math.PI * 2); ctx.fill(); });
+      ctx.strokeStyle = '#e8453c'; ctx.lineWidth = 7;
+      ctx.beginPath();
+      ctx.moveTo(cx + 62, cy - 74); ctx.lineTo(cx + 84, cy - 92);
+      ctx.moveTo(cx + 80, cy - 68); ctx.lineTo(cx + 100, cy - 84);
+      ctx.stroke();
+    }
+    if (h === 'choque' || h === 'triste') { // goutte de sueur
+      ctx.fillStyle = '#8fd3f4'; ctx.strokeStyle = '#2b1c10'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(cx + 74, cy - 18);
+      ctx.quadraticCurveTo(cx + 86, cy + 6, cx + 74, cy + 10);
+      ctx.quadraticCurveTo(cx + 62, cy + 6, cx + 74, cy - 18);
+      ctx.fill(); ctx.stroke();
+    }
+    return c;
+  }
+
+  return dessiner;
+})();

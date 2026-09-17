@@ -161,6 +161,7 @@ const Jeu = (function () {
     const sc = E.scenes[E.idx];
     if (!sc) { finClient(); return; }
     verrou = false;
+    if (UI.phase) UI.phase(sc.type, sc.kind, E);
 
     if (sc.type === 'dialogue') {
       const choix = sc.choix ? sc.choix.filter(c => c.d <= E.jour) : selectionner(sc.pool);
@@ -222,7 +223,7 @@ const Jeu = (function () {
     UI.humeurCaissiere(humeurCaissiere(ch.ton));
     sonTon(ch.ton);
     E.scanRestants = E.client.articles.length;
-    UI.titreChoix("Appuyez sur 🔴 Scanner (" + E.scanRestants + " articles)");
+    UI.titreChoix("🔴 Cliquez sur le scanner ou sur un article — " + E.scanRestants + " à passer");
     UI.afficherChoix([], E.jour, null);
     UI.majActions(E.actions, { scanner: true, encaisser: false });
     UI.tapisRoule(true);
@@ -243,7 +244,7 @@ const Jeu = (function () {
       UI.secoueClient();
     }
     if (E.scanRestants > 0) {
-      UI.titreChoix("Appuyez sur 🔴 Scanner (" + E.scanRestants + " articles)");
+      UI.titreChoix("🔴 Cliquez sur le scanner ou sur un article — " + E.scanRestants + " à passer");
       UI.majHUD(E);
     } else {
       UI.tapisRoule(false);
@@ -265,7 +266,7 @@ const Jeu = (function () {
     if (mode === 'pieces' || mode === 'monnaie') Son.pieces();
     tempo(700, () => {
       reactionClient(ch, () => {
-        UI.titreChoix("Appuyez sur 💰 Encaisser");
+        UI.titreChoix("💳 Cliquez sur le terminal de paiement pour encaisser");
         UI.afficherChoix([], E.jour, null);
         UI.majActions(E.actions, { scanner: false, encaisser: true });
         verrou = false;

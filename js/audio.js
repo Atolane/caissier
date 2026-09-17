@@ -3,6 +3,19 @@
    ============================================================ */
 const Son = (function () {
   let ctx = null, master = null, ambiance = null, muet = false, pret = false;
+  let ambiantes = null, bourdon = null;
+
+  /* annonces diffusées dans le magasin */
+  const ANNONCES = [
+    "Annonce : promotion sur les yaourts nature, rayon frais, allée 4.",
+    "Monsieur Bernard est attendu à l'accueil. Monsieur Bernard, à l'accueil.",
+    "Annonce : il reste trois caisses ouvertes. Enfin, deux. Enfin, une.",
+    "Chers clients, le magasin fermera ses portes dans une heure trente.",
+    "Nettoyage allée 7. Un incident avec des œufs. Encore.",
+    "Annonce : nos équipes sont à votre écoute. Sauf en caisse 3.",
+    "Perdu : un trousseau de clés à l'accueil. Et beaucoup de patience en caisse.",
+    "Promotion flash : deux paquets de biscuits achetés, le troisième reste en rayon."
+  ];
 
   try { muet = localStorage.getItem('caissiere_muet') === '1'; } catch (e) { muet = false; }
 
@@ -81,12 +94,80 @@ const Son = (function () {
     rire() { [520, 430, 520, 430, 380].forEach((f, i) => ton(f, 0.09, 'triangle', 0.13, i * 0.1)); },
     pieces() { for (let i = 0; i < 6; i++) ton(1500 + Math.random() * 1400, 0.06, 'triangle', 0.08, i * 0.11); },
 
+    /* ---------- ambiance du magasin (vue subjective) ---------- */
+    caddie() {
+      if (!pret || muet) return;
+      bruit(0.9, 0.05, 1600, 'highpass');
+      ton(90, 0.5, 'triangle', 0.04, 0, 70);
+    },
+    bipLointain() {
+      const f = 1700 + Math.random() * 700;
+      ton(f, 0.07, 'square', 0.028);
+      ton(f * 1.25, 0.04, 'square', 0.015, 0.02);
+    },
+    brouhaha() {
+      bruit(2.2, 0.028, 520);
+      bruit(1.4, 0.018, 780, 'lowpass', 0.6);
+    },
+    carillon() {          // le « ding-dong » avant une annonce
+      ton(784, 0.5, 'sine', 0.13);
+      ton(587, 0.7, 'sine', 0.13, 0.35);
+    },
+    voixAnnonce(duree) {  // voix étouffée dans les haut-parleurs
+      if (!pret || muet) return;
+      const t0 = ctx.currentTime;
+      for (let i = 0; i < duree * 7; i++) {
+        const f = 180 + Math.random() * 160;
+        ton(f, 0.1, 'sawtooth', 0.022, i * 0.14);
+      }
+    },
+
+    /* boucle d'ambiance : bourdonnement, caddies, bips des autres caisses,
+       brouhaha et annonces du magasin */
+    ambianceMagasin(on) {
+      init();
+      if (!pret) return;
+      if (!on) {
+        if (ambiantes) { ambiantes.forEach(clearInterval); ambiantes = null; }
+        if (bourdon) { try { bourdon.stop(); } catch (e) {} bourdon = null; }
+        return;
+      }
+      if (ambiantes) return;
+      // bourdonnement continu des néons et des frigos
+      const src = ctx.createBufferSource();
+      const n = ctx.sampleRate * 2;
+      const buf = ctx.createBuffer(1, n, ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * 0.5;
+      buf.loop = true;
+      src.buffer = buf; src.loop = true;
+      const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 260;
+      const g = ctx.createGain(); g.gain.value = 0.035;
+      src.connect(f); f.connect(g); g.connect(master);
+      src.start();
+      bourdon = src;
+
+      ambiantes = [
+        setInterval(() => { if (Math.random() < 0.75) API.bipLointain(); }, 2600),
+        setInterval(() => { if (Math.random() < 0.5) API.brouhaha(); }, 7000),
+        setInterval(() => { if (Math.random() < 0.4) API.caddie(); }, 9000),
+        setInterval(() => {
+          if (Math.random() > 0.45) return;
+          API.carillon();
+          API.voixAnnonce(2.5);
+          if (typeof UI !== 'undefined' && UI.annonce) {
+            UI.annonce(ANNONCES[Math.floor(Math.random() * ANNONCES.length)]);
+          }
+        }, 26000)
+      ];
+    },
+
     /* musique d'ambiance de supermarché : petite boucle lounge */
     ambianceOn() {
       init();
       if (!pret || ambiance) return;
       const gain = ctx.createGain();
-      gain.gain.value = 0.055;
+      gain.gain.value = 0.038;
       gain.connect(master);
       const notes = [523.25, 587.33, 659.25, 783.99, 659.25, 587.33, 493.88, 523.25];
       const basses = [130.81, 146.83, 164.81, 196.00];
@@ -111,6 +192,8 @@ const Son = (function () {
     },
     ambianceOff() {
       if (ambiance) { clearInterval(ambiance.timer); ambiance = null; }
+      if (ambiantes) { ambiantes.forEach(clearInterval); ambiantes = null; }
+      if (bourdon) { try { bourdon.stop(); } catch (e) {} bourdon = null; }
     },
     basculerMuet() {
       muet = !muet;

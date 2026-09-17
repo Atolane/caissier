@@ -3,124 +3,84 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="description" content="La Caissière la Plus Insupportable — simulation de caisse humoristique où il faut être désagréable sans se faire licencier.">
+<meta name="description" content="La Caissière la Plus Insupportable — simulation de caisse à la première personne : scannez, encaissez et soyez odieuse sans vous faire licencier.">
 <title>La Caissière la Plus Insupportable</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>😒</text></svg>">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
-<div id="app">
+<canvas id="vue"></canvas>
 
-  <!-- ====================== HUD ====================== -->
-  <header id="hud" class="hidden">
-    <div class="hud-top">
-      <div class="hud-chip"><span class="chip-ico">📅</span><span id="hud-jour">Jour 1</span></div>
-      <div class="hud-chip"><span class="chip-ico">🕐</span><span id="hud-heure">09:00</span></div>
-      <div class="hud-chip"><span class="chip-ico">💰</span><span id="hud-argent">0 €</span></div>
-      <div class="hud-chip"><span class="chip-ico">👥</span><span id="hud-file">0</span></div>
-      <button id="btn-son" class="hud-btn" title="Couper le son" aria-label="Couper le son">🔊</button>
-      <button id="btn-menu" class="hud-btn" title="Menu" aria-label="Menu">☰</button>
-    </div>
-    <div class="hud-jauges">
-      <div class="jauge j-mech" title="Niveau de désagréabilité">
-        <span class="j-lab">😈 Désagréabilité</span>
-        <div class="j-bar"><i id="j-mech"></i></div>
-        <span class="j-val" id="v-mech">0</span>
-      </div>
-      <div class="jauge j-risk" title="Risque de licenciement">
-        <span class="j-lab">👔 Licenciement</span>
-        <div class="j-bar"><i id="j-risk"></i></div>
-        <span class="j-val" id="v-risk">0</span>
-      </div>
-      <div class="jauge j-rep" title="Réputation">
-        <span class="j-lab">⭐ Réputation</span>
-        <div class="j-bar"><i id="j-rep"></i></div>
-        <span class="j-val" id="v-rep">50</span>
-      </div>
-      <div class="jauge j-pat" title="Patience de la caissière">
-        <span class="j-lab">🧘 Patience</span>
-        <div class="j-bar"><i id="j-pat"></i></div>
-        <span class="j-val" id="v-pat">100</span>
-      </div>
-      <div class="jauge j-vit" title="Vitesse de la caisse">
-        <span class="j-lab">⚡ Vitesse</span>
-        <div class="j-bar"><i id="j-vit"></i></div>
-        <span class="j-val" id="v-vit">100</span>
-      </div>
-    </div>
-  </header>
+<div id="hud">
 
-  <!-- ====================== SCÈNE ====================== -->
-  <main id="scene" class="hidden">
-    <div id="magasin">
-      <div id="enseigne">SUPÉRETTE</div>
-      <div id="rayons"></div>
-
-      <div id="file-attente" aria-label="File d'attente"></div>
-
-      <div id="zone-client">
-        <div id="client-avatar"></div>
-        <div id="client-nom">—</div>
-      </div>
-
-      <div id="comptoir">
-        <div id="tapis">
-          <div id="tapis-bande"></div>
-          <div id="articles"></div>
-        </div>
-        <div id="materiel">
-          <div id="scanner" class="machine"><div class="laser"></div><span class="mach-lab">SCAN</span></div>
-          <div id="tpe" class="machine"><div class="tpe-ecran">CB</div><span class="mach-lab">TPE</span></div>
-          <div id="tiroir" class="machine"><span class="mach-lab">CAISSE</span></div>
-        </div>
-      </div>
-
-      <div id="zone-caissiere">
-        <div id="caissiere-avatar"></div>
-        <div id="badge-caissiere">Josiane — Caisse n°<span id="num-caisse">3</span></div>
-      </div>
-
-      <div id="responsable" class="hidden">
-        <div id="resp-avatar"></div>
-        <div id="resp-bulle">Tout se passe bien ici&nbsp;?</div>
-      </div>
-
-      <div id="volants"></div>
-    </div>
-
-    <div id="bulle-client" class="bulle hidden"><span id="bulle-client-txt"></span></div>
-    <div id="bulle-caissiere" class="bulle bulle-droite hidden"><span id="bulle-caissiere-txt"></span></div>
-  </main>
-
-  <!-- ====================== PANNEAU BAS ====================== -->
-  <section id="panneau" class="hidden">
-    <div id="ticket-info" class="hidden">
-      <span id="ticket-total">0,00 €</span>
-      <span id="ticket-details">0 article</span>
-    </div>
-    <div id="choix"></div>
-    <div id="actions">
-      <button class="act" id="act-scanner" data-act="scanner">🔴 Scanner</button>
-      <button class="act" id="act-encaisser" data-act="encaisser">💰 Encaisser</button>
-      <button class="act" id="act-soupir" data-act="soupir">😮‍💨 Soupirer <b class="cpt">2</b></button>
-      <button class="act" id="act-yeux" data-act="yeux">🙄 Yeux au ciel <b class="cpt">2</b></button>
-      <button class="act" id="act-pause" data-act="pause">🐌 Pause imprévue <b class="cpt">1</b></button>
-      <button class="act" id="act-prix" data-act="prix">📢 Contrôle de prix <b class="cpt">1</b></button>
-    </div>
-  </section>
-
-  <!-- ====================== OVERLAYS ====================== -->
-  <div id="overlay" class="hidden">
-    <div id="overlay-box" role="dialog" aria-modal="true"></div>
+  <!-- ligne du haut : jour et heure -->
+  <div id="hud-haut">
+    <span id="hud-jour">MARDI</span>
+    <span id="hud-heure">09:00</span>
+    <span id="hud-magasin">Supérette du Coin</span>
   </div>
 
+  <!-- jauges discrètes en bas à gauche -->
+  <div id="hud-jauges">
+    <div class="jg" id="jg-mech"><span class="jg-lab"><b>😈</b><span>Désagréabilité</span></span><span class="jg-val">0 %</span><i></i></div>
+    <div class="jg" id="jg-risk"><span class="jg-lab"><b>👔</b><span>Risque de licenciement</span></span><span class="jg-val">0 %</span><i></i></div>
+    <div class="jg" id="jg-caisse"><span class="jg-lab"><b>💶</b><span>Caisse</span></span><span class="jg-val">0,00 €</span></div>
+    <div class="jg mini" id="jg-rep"><span class="jg-lab"><b>⭐</b><span>Réputation</span></span><span class="jg-val">50</span><i></i></div>
+    <div class="jg mini" id="jg-pat"><span class="jg-lab"><b>🧘</b><span>Patience</span></span><span class="jg-val">100</span><i></i></div>
+    <div class="jg mini" id="jg-vit"><span class="jg-lab"><b>⚡</b><span>Vitesse</span></span><span class="jg-val">100</span><i></i></div>
+    <div class="jg mini" id="jg-file"><span class="jg-lab"><b>👥</b><span>File</span></span><span class="jg-val">0</span></div>
+  </div>
+
+  <!-- viseur + libellé de l'objet visé -->
+  <div id="viseur"><b></b><span id="viseur-txt"></span></div>
+
+  <!-- bulle du client, ancrée au-dessus de sa tête -->
+  <div id="bulle-client" class="hidden"><span id="bulle-client-nom"></span><span id="bulle-client-txt"></span></div>
+
+  <!-- ce que répond la caissière -->
+  <div id="bulle-caissiere" class="hidden"></div>
+
+  <!-- annonces du magasin -->
+  <div id="annonce" class="hidden"></div>
+
+  <!-- messages courts -->
   <div id="toasts" aria-live="polite"></div>
+  <div id="volants"></div>
+
+  <!-- dialogues : réponses en bas -->
+  <div id="zone-bas">
+    <div id="titre-choix"></div>
+    <div id="choix"></div>
+  </div>
+
+  <!-- actions de la caissière -->
+  <div id="actions">
+    <button class="act" data-act="soupir" title="Soupirer (S)">😮‍💨<b>2</b></button>
+    <button class="act" data-act="yeux" title="Lever les yeux au ciel (Y)">🙄<b>2</b></button>
+    <button class="act" data-act="pause" title="Pause imprévue (P)">🐌<b>1</b></button>
+    <button class="act" data-act="prix" title="Contrôle de prix (C)">📢<b>1</b></button>
+  </div>
+
+  <!-- boutons système -->
+  <div id="systeme">
+    <button id="btn-son" title="Couper le son">🔊</button>
+    <button id="btn-reglages" title="Réglages">⚙️</button>
+    <button id="btn-menu" title="Menu (Échap)">☰</button>
+  </div>
+
+  <div id="aide-souris">Bougez la souris pour regarder · glissez pour pivoter · cliquez les objets</div>
 </div>
 
+<div id="overlay" class="hidden">
+  <div id="overlay-box" role="dialog" aria-modal="true"></div>
+</div>
+
+<script src="js/vendor/three.min.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/data.js"></script>
 <script src="js/faces.js"></script>
+<script src="js/scene3d.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/engine.js"></script>
 <script src="js/main.js"></script>
