@@ -52,17 +52,19 @@ En plus des dialogues : 🔴 **Scanner** (un appui par article, avec le BIP),
 
 ## Contenu
 
-- **15 profils de clients** avec dialogues propres : la dame qui cherche sa monnaie, le
+- **16 profils de clients** avec dialogues propres : la dame qui cherche sa monnaie, le
   client pressé, celui qui veut absolument son ticket, la cliente qui demande si la carte
-  marche, le roi des 47 cartes de fidélité, celui qui a oublié un article, le payeur en
-  pièces, la cliente au téléphone, l'inspecteur des prix, le parent de Kevin, le raconteur
-  de vie, la suspicieuse, le silencieux, le déjà énervé, monsieur sans-contact.
+  marche, le roi des 47 cartes de fidélité, celui qui a oublié un article, la dame aux
+  tomates fragiles, le payeur en pièces, la cliente au téléphone, l'inspecteur des prix,
+  le parent de Kevin, le raconteur de vie, la suspicieuse, le silencieux, le déjà énervé,
+  monsieur sans-contact.
 - **14 événements aléatoires** : scanner en panne, article sans code-barres, prix différent,
   TPE HS, rouleau de ticket fini, erreur sur le ticket, passage du responsable, file qui
   s'allonge, demande d'ouvrir une autre caisse, collègue qui appelle, promo qui ne marche
   pas, portefeuille oublié, remboursement, paiement en pièces.
 - **Réactions des clients** : soupirs, sarcasmes, rires, colère, plainte écrite, appel au
-  responsable, départ de la caisse, avis une étoile, client traumatisé.
+  responsable, coup de téléphone à un proche, départ de la caisse, avis une étoile,
+  client traumatisé.
 - **5 journées** de difficulté croissante, de la petite supérette au MégaMarché du samedi
   après-midi, avec déblocage progressif de répliques, de clients, de magasins et de caisses.
 - **6 titres de fin de journée** (« Caissière adorable » → « Légende de la mauvaise humeur »)

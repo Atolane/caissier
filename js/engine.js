@@ -336,7 +336,7 @@ const Jeu = (function () {
     // redescend lentement, et les petites cruautés gratuites ne la font jamais baisser
     const cible = CIBLES_MECHANCETE[ch.ton] !== undefined ? CIBLES_MECHANCETE[ch.ton] : E.mech;
     if (cible > E.mech) E.mech += (cible - E.mech) * 0.16;
-    else if (!ch.acte) E.mech += (cible - E.mech) * 0.05;
+    else if (!ch.acte) E.mech += (cible - E.mech) * 0.04;
     E.mech = borne(E.mech, 0, 100);
     E.rep = borne(E.rep + (ch.rep || 0), 0, 100);
     E.risk = borne(E.risk + (ch.risk || 0), 0, 100);
@@ -398,8 +398,8 @@ const Jeu = (function () {
     if (ch.ton >= 3 && Math.random() < 0.22) { pool = REACTIONS.rire; Son.rire(); cl.irr = borne(cl.irr - 12, 0, 120); }
     else if (ch.ton >= 2 && cl.irr > 45 && Math.random() < 0.3) pool = REACTIONS.sarcasme;
     else if (cl.irr >= 75) { pool = REACTIONS.furieux; Son.colere(); }
-    else if (cl.irr >= 50) { pool = REACTIONS.enerve; Son.soupir(); }
-    else if (cl.irr >= 25) { pool = REACTIONS.agace; if (Math.random() < 0.5) Son.soupir(); }
+    else if (cl.irr >= 50) { pool = REACTIONS.enerve; Son.soupir(); UI.volant('😮‍💨', '#5b6677'); }
+    else if (cl.irr >= 25) { pool = REACTIONS.agace; if (Math.random() < 0.5) { Son.soupir(); UI.volant('😮‍💨', '#5b6677'); } }
     else pool = REACTIONS.calme;
 
     UI.humeurClient(humeurClient());
@@ -604,9 +604,9 @@ const Jeu = (function () {
     E.fini = true;
     const b = bilanComplet();
     let fin;
-    if (E.mech >= 88 && E.risk < 90) fin = FINS.legende;
-    else if (b.plaintes + b.responsable * 2 >= 9) fin = FINS.convocation;
+    if (E.mech >= 85 && E.risk < 90) fin = FINS.legende;
     else if (E.mech >= 60) fin = FINS.terreur;
+    else if (b.plaintes + b.responsable * 2 >= 9) fin = FINS.convocation;
     else if (E.rep >= 70 && E.mech < 30) fin = FINS.modele;
     else fin = FINS.normale;
     Son.ambianceOff();

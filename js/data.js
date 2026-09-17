@@ -127,7 +127,9 @@ const EXTREMES = [
   { id: 'pleure',     txt: "« Je... non, rien. » (la lèvre tremble)", ico: '😭',
     eff: { risk: 5, mech: 18, rep: -6 }, stat: 'traumatises' },
   { id: 'crie',       txt: "« NON MAIS VOUS ÊTES MALADE ?! »", ico: '📢',
-    eff: { risk: 6, mech: 11, rep: -6 }, stat: 'enerves' }
+    eff: { risk: 6, mech: 11, rep: -6 }, stat: 'enerves' },
+  { id: 'appelle',    txt: "« Allô ? Non, tu ne vas pas me croire. Je te mets sur haut-parleur. »", ico: '📞',
+    eff: { risk: 7, mech: 13, rep: -8 }, stat: 'avis' }
 ];
 
 /* ============================================================
@@ -295,6 +297,32 @@ const CLIENTS = [
           k('😐', "« Trois trucs. Trois. Pas quatre. »", 2, 1, { cash: 7 }),
           k('😒', "« Vous voulez pas faire vos courses pendant que vous y êtes ? Ah si, pardon. »", 3, 1, { cash: 5 }),
           k('😈', "« Allez-y, remplissez le tapis. La file adore les surprises. »", 4, 2, { cash: 4 })
+        ] }
+    ]
+  },
+
+  /* ---------- 6 bis. La cliente aux articles fragiles ---------- */
+  {
+    id: 'fragile', nom: 'Madame Tomates', emoji: '🍅', d: 2, art: 8, paiement: 'carte',
+    desc: "Ses tomates valent plus que vous",
+    face: { peau: '#f4d2b2', cheveux: 'long', couleur: '#6b4a2b', lunettes: false, vetement: '#4aa86b' },
+    arrivee: "« Bonjour, vous pouvez faire attention à ne pas écraser mes tomates ? »",
+    beats: [
+      { l: "« Bonjour, vous pouvez faire attention à ne pas écraser mes tomates ? »",
+        c: [
+          k('😊', "« Bien sûr ! Je les mets sur le dessus. »", 0, 1),
+          k('😐', "« Oui, oui... »", 1, 1),
+          k('😒', "« C'est bon, ce sont des tomates, pas des diamants. »", 2, 1),
+          k('😈', "« Si elles survivent au transport jusqu'à chez vous, ce sera déjà bien. »", 3, 2),
+          k('💥', "(poser la bouteille de lessive dessus, très lentement, en soutenant son regard)", 4, 3, { mech: 20 })
+        ] },
+      { l: "« Et les œufs, vous pouvez les mettre à part ? Et le pain ? Et pas le pain sur les œufs. »",
+        c: [
+          k('😊', "« Je vous fais trois sacs séparés, ne vous inquiétez pas. »", 0, 1),
+          k('🙂', "« D'accord. »", 1, 1),
+          k('😐', "« Je n'ai que deux mains et un tapis. »", 2, 1),
+          k('🙄', "« Vous voulez un plan de rangement ? Je peux faire un schéma. »", 3, 2),
+          k('😈', "« Œufs, pain, tomates, tout dans le même sac. C'est la roulette du supermarché. »", 4, 3)
         ] }
     ]
   },
@@ -728,7 +756,7 @@ const JOURS = [
     n: 2, magasin: "Supérette du Coin", caisse: 3, clients: 7, chanceEvent: 0.32,
     ouverture: 9 * 60, fermeture: 13 * 60, fileMax: 5,
     intro: "Deuxième jour. Le bouche-à-oreille fonctionne : les gens viennent voir « la caissière bizarre ». Et le scanner commence à faire des siennes.",
-    deblocages: ["Nouvelles répliques (ton sec et méchant)", "Clients : Madame Carte-Bleue, Monsieur Encore-Un-Truc, Monsieur Toute-Ma-Vie", "Événements aléatoires plus fréquents"]
+    deblocages: ["Nouvelles répliques (ton sec et méchant)", "Clients : Madame Carte-Bleue, Monsieur Encore-Un-Truc, Madame Tomates, Monsieur Toute-Ma-Vie", "Événements aléatoires plus fréquents"]
   },
   {
     n: 3, magasin: "Marché Malin", caisse: 5, clients: 9, chanceEvent: 0.45,
@@ -759,7 +787,7 @@ const TITRES = [
   { min: 40, nom: "Reine du soupir",                 ico: '😮‍💨', txt: "Votre soupir est devenu un bruit de fond du magasin." },
   { min: 60, nom: "Terreur de la caisse",            ico: '😈', txt: "On change de file en vous voyant. Certains rebroussent chemin." },
   { min: 78, nom: "Fléau du supermarché",            ico: '💀', txt: "Des gens racontent leur passage en caisse à leur psychologue." },
-  { min: 90, nom: "Légende de la mauvaise humeur",   ico: '👑', txt: "Votre nom se murmure dans tous les supermarchés du département." }
+  { min: 85, nom: "Légende de la mauvaise humeur",   ico: '👑', txt: "Votre nom se murmure dans tous les supermarchés du département." }
 ];
 
 /* ============================================================
